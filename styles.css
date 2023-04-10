@@ -1,0 +1,42 @@
+/* Set the container for the grid */
+.container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Makes the columns fit the container, with a minimum of 200px and a maximum of 1fr */
+    grid-gap: 20px; /* Adds spacing between the links */
+    border: 2px solid #333; /* Adds a border around the container */
+    padding: 40px; /* Adds padding inside the container to separate the links from the border */
+}
+
+/* Style the links */
+.link {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100px;
+    background-color: #f1f1f1;
+    border-radius: 10px;
+    font-size: 20px;
+    color: #333;
+    text-decoration: none;
+    transition: all 0.2s ease-in-out;
+    border: 2px solid #333;
+}
+
+/* Add a hover effect to the links */
+.link:hover {
+    background-color: #333;
+    color: #fff;
+}
+
+/* Make the links responsive */
+@media screen and (max-width: 768px) {
+    .container {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Reduces the minimum size of the columns to 150px */
+        grid-gap: 10px; /* Reduces the gap between the links */
+    }
+
+    .link {
+        height: 80px; /* Reduces the height of the links */
+        font-size: 16px; /* Reduces the font size of the links */
+    }
+}

@@ -18,25 +18,29 @@ const directoryPath = "./music";
 //make files available in music subdirectory
 app.use('/music', express.static(join(__dirname, directoryPath.substring(2))));
 
+app.get('/styles.css', function(req, res) {
+    res.set('Content-Type', 'text/css');
+    res.sendFile(__dirname + '/styles.css');
+});
+
 app.get('/', async (req,res) =>{
     try {
         const files = await promises.readdir(directoryPath);
-        let fileNames = '<html><head><title></title></head><body><ul>';
+        let fileNames = '<html><head><title>ananlogarchivejs</title><link rel="stylesheet" href="styles.css"></head><body><div class="container">';
         for (const file of files) {
             const filePath = join(directoryPath, file);
             const stats = await promises.stat(filePath);
             if (stats.isFile() && extname(filePath).toLowerCase() === '.mp3') {
                 const metadata = await parseFile(filePath);
                 fileNames +=
-                `<li>
-                    <a href="#" onclick="playAudio('music/${file}', this)">${file}</a> 
-                    Artist: ${metadata.common.artist}, 
-                    Album: ${metadata.common.album}, 
-                    Song: ${metadata.common.title}
-                </li>`;
+                `
+                    <a href="#" class="link" onclick="playAudio('music/${file}', this)">
+                    ${metadata.common.artist}-${metadata.common.album}:${metadata.common.title}
+                    </a> 
+                `;
             }
         }
-        fileNames += '</ul></body></html>'
+        fileNames += '</div></body></html>'
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.write(`
         <script>
