@@ -8,7 +8,7 @@ import * as url from 'url';
 import express from 'express';
 
 const app = express();
-const port = 8080;
+const port = 50001;
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 //use self-signed certificate for localhost development
 const options = {key: readFileSync('./ssl/server.key'),
