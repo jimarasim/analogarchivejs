@@ -32,10 +32,14 @@ app.get('/', async (req,res) =>{
             const stats = await promises.stat(filePath);
             if (stats.isFile() && extname(filePath).toLowerCase() === '.mp3') {
                 const metadata = await parseFile(filePath);
+                const artwork = await extractArtwork(filePath);
                 fileNames +=
                 `
-                    <a href="#" class="link" onclick="playAudio('music/${file}', this)">
-                    ${metadata.common.artist}-${metadata.common.album}:${metadata.common.title}
+                    <a href="#" 
+                    class="link" 
+                    style="background-image:url('data:image/png;base64,${artwork}')" 
+                    onclick="playAudio('music/${file}', this)">
+                    ${metadata.common.artist} ${metadata.common.album} ${metadata.common.title}
                     </a> 
                 `;
             }
@@ -73,3 +77,13 @@ app.get('/', async (req,res) =>{
 createServer(options, app).listen(port, () => {
     console.log(`Server listening on https://localhost:${port}`);
 });
+
+async function extractArtwork(filePath) {
+    const metadata = await parseFile(filePath);
+    if(metadata.common.picture===undefined){
+        return "";
+    }else {
+        const picture = metadata.common.picture[0];
+        return picture.data.toString('base64');
+    }
+}
