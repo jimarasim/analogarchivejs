@@ -80,6 +80,10 @@ createServer(options, app).listen(port, () => {
 
 async function extractArtwork(filePath) {
     const metadata = await parseFile(filePath);
-    const picture = metadata.common.picture[0];
-    return picture.data.toString('base64');
+    if(metadata.common.picture===undefined){
+        return "";
+    }else {
+        const picture = metadata.common.picture[0];
+        return picture.data.toString('base64');
+    }
 }
