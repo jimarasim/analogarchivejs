@@ -18,6 +18,14 @@ const directoryPath = "./music";
 //make files available in music subdirectory
 app.use('/music', express.static(join(__dirname, directoryPath.substring(2))));
 
+app.get('/Archive.zip', function(req,res){
+    res.sendFile(__dirname + '/Archive.zip');
+});
+
+app.get('/favicon.ico', function(req,res){
+    res.sendFile(__dirname + '/favicon.ico');
+});
+
 app.get('/styles.css', function(req, res) {
     res.set('Content-Type', 'text/css');
     res.sendFile(__dirname + '/styles.css');
@@ -33,18 +41,26 @@ app.get('/', async (req,res) =>{
             if (stats.isFile() && extname(filePath).toLowerCase() === '.mp3') {
                 const metadata = await parseFile(filePath);
                 const artwork = await extractArtwork(filePath);
-                fileNames +=
-                `
+                if(artwork===""){
+                    fileNames += `
+                    <a href="#" 
+                    class="link" 
+                    style="background-image:url('favicon.ico');)" 
+                    onclick="playAudio('music/${file}', this)">
+                    ${metadata.common.artist} ${metadata.common.album} ${metadata.common.title}
+                    </a>`;
+                }else {
+                    fileNames += `
                     <a href="#" 
                     class="link" 
                     style="background-image:url('data:image/png;base64,${artwork}')" 
                     onclick="playAudio('music/${file}', this)">
                     ${metadata.common.artist} ${metadata.common.album} ${metadata.common.title}
-                    </a> 
-                `;
+                    </a>`;
+                }
             }
         }
-        fileNames += '</div></body></html>'
+        fileNames += '</div>'
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.write(`
         <script>
@@ -66,7 +82,17 @@ app.get('/', async (req,res) =>{
               }
         </script>
         `);
-        res.end(fileNames);
+        res.write(fileNames);
+        res.end(`<script>
+            // Get all links on the page
+            var links = document.getElementsByTagName("a");
+
+            // Loop through each link and trim its text
+            for (var i = 0; i < links.length; i++) {
+            var text = links[i].textContent.trim();
+            links[i].textContent = text;
+        }
+        </script></body></html>`);
     } catch (err) {
         console.error(err);
         res.writeHead(500);

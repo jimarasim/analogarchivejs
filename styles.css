@@ -12,24 +12,28 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100px;
+    height: 150px;
     background-color: #f1f1f1;
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
     border-radius: 10px;
-    font-size: 20px;
     font-weight: bold;
-    color: #333;
     text-decoration: none;
     transition: all 0.2s ease-in-out;
     border: 2px solid #333;
+    white-space: break-spaces;
+    text-align: left;
+    font-size: 23px;
+    color: #BFFF00; /* set the color of the text */
+    -webkit-text-stroke: 1px #000000; /* set the width and color of the outline */
+    text-fill-color: #BFFF00;
 }
 
 /* Add a hover effect to the links */
 .link:hover {
-    background-color: #333;
-    color: #fff;
+    background-color: #000;
+    color: #ffffff;
 }
 
 /* Make the links responsive */
