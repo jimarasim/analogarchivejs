@@ -13,10 +13,12 @@ const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 //use self-signed certificate for localhost development
 const options = {key: readFileSync('./ssl/server.key'),
     cert: readFileSync('./ssl/server.cert')}
-const directoryPath = "./music";
+const directoryPathMusic = "./music";
+const directoryPathVideo = "./video";
 
 //make files available in music subdirectory
-app.use('/music', express.static(join(__dirname, directoryPath.substring(2))));
+app.use('/music', express.static(join(__dirname, directoryPathMusic.substring(2))));
+app.use('/video', express.static(join(__dirname, directoryPathVideo.substring(2))));
 
 app.get('/Archive.zip', function(req,res){
     res.sendFile(__dirname + '/Archive.zip');
@@ -33,10 +35,10 @@ app.get('/styles.css', function(req, res) {
 
 app.get('/', async (req,res) =>{
     try {
-        const files = await promises.readdir(directoryPath);
+        const files = await promises.readdir(directoryPathMusic);
         let fileNames = '<html><head><title>ananlogarchivejs</title><link rel="stylesheet" href="styles.css"></head><body><div class="container">';
         for (const file of files) {
-            const filePath = join(directoryPath, file);
+            const filePath = join(directoryPathMusic, file);
             const stats = await promises.stat(filePath);
             if (stats.isFile() && extname(filePath).toLowerCase() === '.mp3') {
                 const metadata = await parseFile(filePath);
@@ -73,6 +75,33 @@ app.get('/', async (req,res) =>{
                 });
               }
         </script></body></html>`);
+    } catch (err) {
+        console.error(err);
+        res.writeHead(500);
+        res.end('Internal Server Error');
+    }
+});
+
+app.get('/movie', async (req,res) =>{
+    try {
+        const files = await promises.readdir(directoryPathVideo);
+        let fileNames = '<html><head><title>ananlogarchivejs</title><link rel="stylesheet" href="styles.css"></head><body><div class="container">';
+        for (const file of files) {
+            const filePath = join(directoryPathVideo, file);
+            const stats = await promises.stat(filePath);
+            if (stats.isFile() && extname(filePath).toLowerCase() === '.mp4') {
+                fileNames += `
+                <video width="320" height="240" controls>
+                  <source src="${filePath}" type="video/mp4">
+                  Your browser does not support the video tag.
+                </video>
+                `;
+            }
+        }
+        fileNames += '</div>'
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.write(fileNames);
+        res.end(`</body></html>`);
     } catch (err) {
         console.error(err);
         res.writeHead(500);
