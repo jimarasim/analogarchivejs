@@ -47,7 +47,9 @@ app.get('/', async (req,res) =>{
                     class="link" 
                     style="background-image:url('favicon.ico');)" 
                     onclick="playAudio('music/${file}', this)">
-                    ${metadata.common.artist} ${metadata.common.album} ${metadata.common.title}
+                    ${metadata.common.artist}<br />
+                    ${metadata.common.album}<br />
+                    ${metadata.common.title}
                     </a>`;
                 }else {
                     fileNames += `
@@ -55,15 +57,17 @@ app.get('/', async (req,res) =>{
                     class="link" 
                     style="background-image:url('data:image/png;base64,${artwork}')" 
                     onclick="playAudio('music/${file}', this)">
-                    ${metadata.common.artist} ${metadata.common.album} ${metadata.common.title}
+                    ${metadata.common.artist}<br />
+                    ${metadata.common.album}<br />
+                    ${metadata.common.title}
                     </a>`;
                 }
             }
         }
         fileNames += '</div>'
         res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.write(`
-        <script>
+        res.write(fileNames);
+        res.end(`        <script>
               function playAudio(audioSrc, link) {
                 // Create a new audio element
                 const audio = new Audio(audioSrc);
@@ -80,18 +84,6 @@ app.get('/', async (req,res) =>{
                   audio.parentNode.replaceChild(link, audio);
                 });
               }
-        </script>
-        `);
-        res.write(fileNames);
-        res.end(`<script>
-            // Get all links on the page
-            var links = document.getElementsByTagName("a");
-
-            // Loop through each link and trim its text
-            for (var i = 0; i < links.length; i++) {
-            var text = links[i].textContent.trim();
-            links[i].textContent = text;
-        }
         </script></body></html>`);
     } catch (err) {
         console.error(err);
