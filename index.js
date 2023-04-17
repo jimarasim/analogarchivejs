@@ -41,27 +41,15 @@ app.get('/', async (req,res) =>{
             if (stats.isFile() && extname(filePath).toLowerCase() === '.mp3') {
                 const metadata = await parseFile(filePath);
                 const artwork = await extractArtwork(filePath);
-                if(artwork===""){
-                    fileNames += `
-                    <a href="#" 
-                    class="link" 
-                    style="background-image:url('favicon.ico');)" 
-                    onclick="playAudio('music/${file}', this)">
-                    ${metadata.common.artist}
-                    ${metadata.common.album}
-                    ${metadata.common.title}
-                    </a>`;
-                }else {
-                    fileNames += `
-                    <a href="#" 
-                    class="link" 
-                    style="background-image:url('data:image/png;base64,${artwork}')" 
-                    onclick="playAudio('music/${file}', this)">
-                    ${metadata.common.artist}
-                    ${metadata.common.album}
-                    ${metadata.common.title}
-                    </a>`;
-                }
+                fileNames += `
+                <a href="#" 
+                class="link" 
+                style="background-image:url('data:image/png;base64,${artwork}')" 
+                onclick="playAudio('music/${file}', this)">
+                ${metadata.common.artist}
+                ${metadata.common.album}
+                ${metadata.common.title}
+                </a>`;
             }
         }
         fileNames += '</div>'
