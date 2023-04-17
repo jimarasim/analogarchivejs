@@ -60,7 +60,7 @@ app.get('/', async (req,res) =>{
                 }
             }
         }
-        fileNames += '</div></body></html>'
+        fileNames += '</div>'
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.write(`
         <script>
@@ -82,7 +82,17 @@ app.get('/', async (req,res) =>{
               }
         </script>
         `);
-        res.end(fileNames);
+        res.write(fileNames);
+        res.end(`<script>
+            // Get all links on the page
+            var links = document.getElementsByTagName("a");
+
+            // Loop through each link and trim its text
+            for (var i = 0; i < links.length; i++) {
+            var text = links[i].textContent.trim();
+            links[i].textContent = text;
+        }
+        </script></body></html>`);
     } catch (err) {
         console.error(err);
         res.writeHead(500);
