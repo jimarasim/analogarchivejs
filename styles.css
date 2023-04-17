@@ -13,7 +13,7 @@
     justify-content: center;
     align-items: center;
     height: 150px;
-    background-color: #f1f1f1;
+    background-color: black;
     background-size: contain;
     background-repeat: no-repeat;
     background-position: left;
@@ -24,12 +24,17 @@
     word-wrap: break-word;
     word-break: break-word;
     text-align: right;
+    -webkit-text-stroke: 1px #fff; /* set the width and color of the outline */
+    text-fill-color: lime; /* set the color of the text */
+    font-size: 20px;
+    color: deepskyblue;
 }
 
 /* Add a hover effect to the links */
 .link:hover {
     background-color: #000;
-    color: #ffffff;
+    color: #000000;
+    text-decoration: underline;
 }
 
 /* Make the links responsive */
