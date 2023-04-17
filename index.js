@@ -18,6 +18,14 @@ const directoryPath = "./music";
 //make files available in music subdirectory
 app.use('/music', express.static(join(__dirname, directoryPath.substring(2))));
 
+app.get('/Archive.zip', function(req,res){
+    res.sendFile(__dirname + '/Archive.zip');
+});
+
+app.get('/favicon.ico', function(req,res){
+    res.sendFile(__dirname + '/favicon.ico');
+});
+
 app.get('/styles.css', function(req, res) {
     res.set('Content-Type', 'text/css');
     res.sendFile(__dirname + '/styles.css');
@@ -33,15 +41,23 @@ app.get('/', async (req,res) =>{
             if (stats.isFile() && extname(filePath).toLowerCase() === '.mp3') {
                 const metadata = await parseFile(filePath);
                 const artwork = await extractArtwork(filePath);
-                fileNames +=
-                `
+                if(artwork===""){
+                    fileNames += `
+                    <a href="#" 
+                    class="link" 
+                    style="background-image:url('favicon.ico');)" 
+                    onclick="playAudio('music/${file}', this)">
+                    ${metadata.common.artist} ${metadata.common.album} ${metadata.common.title}
+                    </a>`;
+                }else {
+                    fileNames += `
                     <a href="#" 
                     class="link" 
                     style="background-image:url('data:image/png;base64,${artwork}')" 
                     onclick="playAudio('music/${file}', this)">
                     ${metadata.common.artist} ${metadata.common.album} ${metadata.common.title}
-                    </a> 
-                `;
+                    </a>`;
+                }
             }
         }
         fileNames += '</div></body></html>'
