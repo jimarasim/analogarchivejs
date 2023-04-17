@@ -16,13 +16,14 @@
     background-color: #f1f1f1;
     background-size: contain;
     background-repeat: no-repeat;
-    background-position: center;
+    background-position: left;
     border-radius: 10px;
     text-decoration: none;
     transition: all 0.2s ease-in-out;
     border: 2px solid #333;
-    white-space: break-spaces;
-    text-align: left;
+    word-wrap: break-word;
+    word-break: break-word;
+    text-align: right;
 }
 
 /* Add a hover effect to the links */

@@ -47,8 +47,8 @@ app.get('/', async (req,res) =>{
                     class="link" 
                     style="background-image:url('favicon.ico');)" 
                     onclick="playAudio('music/${file}', this)">
-                    ${metadata.common.artist}<br />
-                    ${metadata.common.album}<br />
+                    ${metadata.common.artist}
+                    ${metadata.common.album}
                     ${metadata.common.title}
                     </a>`;
                 }else {
@@ -57,8 +57,8 @@ app.get('/', async (req,res) =>{
                     class="link" 
                     style="background-image:url('data:image/png;base64,${artwork}')" 
                     onclick="playAudio('music/${file}', this)">
-                    ${metadata.common.artist}<br />
-                    ${metadata.common.album}<br />
+                    ${metadata.common.artist}
+                    ${metadata.common.album}
                     ${metadata.common.title}
                     </a>`;
                 }
