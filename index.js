@@ -23,16 +23,13 @@ app.use('/video', express.static(join(__dirname, directoryPathVideo.substring(2)
 app.get('/Archive.zip', function(req,res){
     res.sendFile(__dirname + '/Archive.zip');
 });
-
 app.get('/favicon.ico', function(req,res){
     res.sendFile(__dirname + '/favicon.ico');
 });
-
 app.get('/styles.css', function(req, res) {
     res.set('Content-Type', 'text/css');
     res.sendFile(__dirname + '/styles.css');
 });
-
 app.get('/', async (req,res) =>{
     try {
         const files = await promises.readdir(directoryPathMusic);
@@ -81,20 +78,29 @@ app.get('/', async (req,res) =>{
         res.end('Internal Server Error');
     }
 });
-
 app.get('/movie', async (req,res) =>{
     try {
+        let fileNames = '' +
+            '<html>' +
+            '<head>' +
+            '<title>ananlogarchivejs</title>' +
+            '<link rel="stylesheet" href="styles.css">' +
+            '</head>' +
+            '<body>' +
+            '<div class="videocontainer">';
         const files = await promises.readdir(directoryPathVideo);
-        let fileNames = '<html><head><title>ananlogarchivejs</title><link rel="stylesheet" href="styles.css"></head><body><div class="container">';
         for (const file of files) {
             const filePath = join(directoryPathVideo, file);
             const stats = await promises.stat(filePath);
             if (stats.isFile() && extname(filePath).toLowerCase() === '.mp4') {
                 fileNames += `
-                <video width="320" height="240" controls>
-                  <source src="${filePath}" type="video/mp4">
-                  Your browser does not support the video tag.
-                </video>
+                <div class="video">
+                    <video width="320 "controls>
+                      <source src="${filePath}" type="video/mp4">
+                      Your browser does not support the video tag.
+                    </video>
+                    <b>${file}</b>
+                </div>
                 `;
             }
         }
@@ -111,6 +117,7 @@ app.get('/movie', async (req,res) =>{
 
 createServer(options, app).listen(port, () => {
     console.log(`Server listening on https://localhost:${port}`);
+    console.log(`Server listening on https://localhost:${port}/movie`);
 });
 
 async function extractArtwork(filePath) {

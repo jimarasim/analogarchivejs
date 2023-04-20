@@ -7,6 +7,18 @@
     padding: 40px; /* Adds padding inside the container to separate the links from the border */
 }
 
+.videocontainer {
+    max-width: 1200px; /* adjust the maximum width as needed */
+    margin: 0 auto; /* center the container horizontally */
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* adjust the minimum width of the videos as needed */
+    grid-gap: 20px; /* adjust the gap between videos as needed */
+}
+
+.video {
+    width: 320px; /* adjust the width of the videos as needed */
+}
+
 /* Style the links */
 .link {
     display: flex;
