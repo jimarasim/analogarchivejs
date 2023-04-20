@@ -41,8 +41,7 @@ app.get('/', async (req,res) =>{
                 const metadata = await parseFile(filePath);
                 const artwork = await extractArtwork(filePath);
                 fileNames += `
-                <a href="#" 
-                class="link" 
+                <a class="link" 
                 style="background-image:url('data:image/png;base64,${artwork}')" 
                 onclick="playAudio('music/${file}', this)">
                 ${metadata.common.artist}
