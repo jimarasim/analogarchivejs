@@ -68,6 +68,10 @@ app.get('/', async (req,res) =>{
                 // When the audio ends, replace the audio element with the original link
                 audio.addEventListener('ended', () => {
                   audio.parentNode.replaceChild(link, audio);
+                  let nextLink = link.nextElementSibling;
+                  if(nextLink != null){
+                    nextLink.click();
+                  }
                 });
               }
         </script></body></html>`);
