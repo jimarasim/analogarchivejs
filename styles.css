@@ -61,3 +61,8 @@
         font-size: 16px; /* Reduces the font size of the links */
     }
 }
+
+audio {
+    max-width: 100%;
+    max-height: 100%;
+}

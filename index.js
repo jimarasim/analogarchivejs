@@ -19,7 +19,6 @@ const directoryPathVideo = "./video";
 //make files available in music subdirectory
 app.use('/music', express.static(join(__dirname, directoryPathMusic.substring(2))));
 app.use('/video', express.static(join(__dirname, directoryPathVideo.substring(2))));
-
 app.get('/Archive.zip', function(req,res){
     res.sendFile(__dirname + '/Archive.zip');
 });
