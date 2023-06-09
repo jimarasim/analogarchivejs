@@ -1,10 +1,7 @@
-/* Set the container for the grid */
 .container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Makes the columns fit the container, with a minimum of 200px and a maximum of 1fr */
-    grid-gap: 20px; /* Adds spacing between the links */
-    border: 2px solid #333; /* Adds a border around the container */
-    padding: 40px; /* Adds padding inside the container to separate the links from the border */
+    display: block; /* Change display to block */
+    border: 2px solid #333;
+    padding: 40px;
 }
 
 .videocontainer {
@@ -21,25 +18,26 @@
 
 /* Style the links */
 .link {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 150px;
+    display: block; /* Change display to block */
+    height: auto; /* Remove the fixed height */
+    margin-bottom: 20px; /* Add margin between the links */
+    border: 2px solid #333;
+    border-radius: 10px;
     background-color: black;
     background-size: contain;
     background-repeat: no-repeat;
     background-position: left;
-    border-radius: 10px;
     text-decoration: none;
     transition: all 0.2s ease-in-out;
-    border: 2px solid #333;
     word-wrap: break-word;
     word-break: break-word;
-    text-align: right;
-    -webkit-text-stroke: 1px #fff; /* set the width and color of the outline */
-    text-fill-color: lime; /* set the color of the text */
+    text-align: left;
+    -webkit-text-stroke: 1px #fff;
+    text-fill-color: lime;
     font-size: 20px;
     color: deepskyblue;
+    min-height: 100px;
+    background-position: right center;
 }
 
 /* Add a hover effect to the links */
