@@ -39,6 +39,60 @@ app.get('/styles.css', function(req, res) {
     res.sendFile(__dirname + '/styles.css');
 });
 
+// Proxy endpoint to serve B2 files and avoid CORS issues
+app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
+    try {
+        await b2.authorize();
+        const folder = req.params.folder;
+        const filename = decodeURIComponent(req.params.filename); // Decode here
+        const fullPath = `${folder}/${filename}`;
+
+        console.log(`Proxying B2 file: ${fullPath}`);
+
+        // Download the file from B2
+        const fileData = await b2.downloadFileByName({
+            bucketName: bucketName,
+            fileName: fullPath,
+            responseType: 'arraybuffer' // Ensure we get binary data
+        });
+
+        console.log(`File downloaded successfully`);
+        console.log(`Response type: ${typeof fileData}`);
+        console.log(`Has data property: ${fileData.data ? 'yes' : 'no'}`);
+        console.log(`Data type: ${typeof fileData.data}`);
+        console.log(`Data length: ${fileData.data ? fileData.data.byteLength || fileData.data.length : 'N/A'}`);
+
+        // Set appropriate headers
+        res.set('Content-Type', 'audio/mpeg');
+        res.set('Accept-Ranges', 'bytes');
+        res.set('Cache-Control', 'public, max-age=3600');
+        res.set('Access-Control-Allow-Origin', '*');
+
+        // The data should be in fileData.data as a buffer/arraybuffer
+        if (fileData.data) {
+            // Convert arraybuffer to buffer if needed
+            let buffer;
+            if (fileData.data instanceof ArrayBuffer) {
+                buffer = Buffer.from(fileData.data);
+            } else if (Buffer.isBuffer(fileData.data)) {
+                buffer = fileData.data;
+            } else {
+                buffer = Buffer.from(fileData.data);
+            }
+
+            res.send(buffer);
+        } else {
+            console.error('No file data in response');
+            res.status(404).send('File data not found');
+        }
+    } catch (err) {
+        console.error('Error proxying B2 file:', err);
+        console.error('Error message:', err.message);
+        console.error('Error status:', err.status);
+        res.status(404).send('File not found: ' + err.message);
+    }
+});
+
 // Original local music endpoint
 app.get('/', async (req,res) =>{
     try {
@@ -99,21 +153,15 @@ app.get('/analog', async (req, res) => {
 
         // Get bucket information first
         const bucket = await b2.getBucket({ bucketName });
-        console.log('Bucket response:', JSON.stringify(bucket.data, null, 2));
-
         const bucketId = bucket.data.buckets[0].bucketId;
-        const downloadUrl = bucket.data.buckets[0].downloadUrl;
-
         console.log(`Using bucket ID: ${bucketId}`);
-        console.log(`Using download URL: ${downloadUrl}`);
-        console.log(`Expected bucket ID: 6abe393070d7852e929c0815`);
 
         // List files in the analog folder
         const response = await b2.listFileNames({
             bucketId: bucketId,
             startFileName: 'analog/',
             prefix: 'analog/',
-            maxFileCount: 1000
+            maxFileCount: 10000
         });
 
         console.log(`Found ${response.data.files.length} files in analog folder`);
@@ -121,19 +169,16 @@ app.get('/analog', async (req, res) => {
         let fileNames = '<html><head><title>ananlogarchivejs - Analog</title><link rel="stylesheet" href="styles.css"></head><body><div class="container">';
 
         for (const file of response.data.files) {
-            console.log(`Processing file: ${file.fileName}`);
             if (file.fileName.toLowerCase().endsWith('.mp3') && file.fileName !== 'analog/') {
                 const fileName = file.fileName.split('/').pop(); // Get just the filename
-                // Try different URL formats
-                const directUrl = `${downloadUrl}/file/${bucketName}/${file.fileName}`;
-                const fallbackUrl = `https://f005.backblazeb2.com/file/${bucketName}/${file.fileName}`;
+                // Use our proxy endpoint to avoid CORS issues
+                const proxyUrl = `/b2proxy/analog/${encodeURIComponent(fileName)}`;
 
-                console.log(`Direct URL: ${directUrl}`);
-                console.log(`Fallback URL: ${fallbackUrl}`);
+                console.log(`File: ${file.fileName} -> Proxy URL: ${proxyUrl}`);
 
                 fileNames += `
                 <a class="link" 
-                onclick="playAudio('${directUrl}', '${fallbackUrl}', this)">
+                onclick="playAudio('${proxyUrl}', this)">
                 ${fileName}
                 </a>`;
             }
@@ -143,32 +188,31 @@ app.get('/analog', async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.write(fileNames);
         res.end(`        <script>
-              function playAudio(audioSrc, fallbackSrc, link) {
+              function playAudio(audioSrc, link) {
+                console.log('Playing:', audioSrc);
+                
                 // Create a new audio element
                 const audio = new Audio();
                 audio.controls = true;
                 
-                // Try the primary URL first
-                audio.src = audioSrc;
+                audio.addEventListener('loadstart', () => console.log('Loading started:', audioSrc));
+                audio.addEventListener('canplay', () => console.log('Can start playing'));
+                audio.addEventListener('error', (e) => {
+                    console.error('Audio error:', e);
+                    console.error('Audio error details:', audio.error);
+                });
                 
-                // If primary fails, try fallback
-                audio.onerror = function() {
-                    console.log('Primary URL failed, trying fallback:', fallbackSrc);
-                    audio.src = fallbackSrc;
-                    audio.onerror = function() {
-                        console.log('Both URLs failed');
-                        alert('Could not load audio file: ' + audioSrc);
-                    };
-                };
+                audio.src = audioSrc;
                 
                 // Replace the link with the audio element
                 link.parentNode.replaceChild(audio, link);
                 
-                // Play the audio
-                audio.play().catch(e => {
-                    console.error('Play failed:', e);
-                    alert('Could not play audio: ' + e.message);
-                });
+                // Try to play after a short delay
+                setTimeout(() => {
+                    audio.play().catch(e => {
+                        console.error('Play failed:', e);
+                    });
+                }, 200);
                 
                 // When the audio ends, replace the audio element with the original link
                 audio.addEventListener('ended', () => {
@@ -195,27 +239,31 @@ app.get('/live', async (req, res) => {
         // Get bucket information first
         const bucket = await b2.getBucket({ bucketName });
         const bucketId = bucket.data.buckets[0].bucketId;
-        const downloadUrl = bucket.data.buckets[0].downloadUrl;
+        console.log(`Using bucket ID: ${bucketId}`);
 
         // List files in the live folder
         const response = await b2.listFileNames({
             bucketId: bucketId,
             startFileName: 'live/',
             prefix: 'live/',
-            maxFileCount: 1000
+            maxFileCount: 10000
         });
+
+        console.log(`Found ${response.data.files.length} files in live folder`);
 
         let fileNames = '<html><head><title>ananlogarchivejs - Live</title><link rel="stylesheet" href="styles.css"></head><body><div class="container">';
 
         for (const file of response.data.files) {
             if (file.fileName.toLowerCase().endsWith('.mp3') && file.fileName !== 'live/') {
                 const fileName = file.fileName.split('/').pop(); // Get just the filename
-                // Use simple direct download URL without authorization for now
-                const directUrl = `${downloadUrl}/file/${bucketName}/${file.fileName}`;
+                // Use our proxy endpoint to avoid CORS issues
+                const proxyUrl = `/b2proxy/live/${encodeURIComponent(fileName)}`;
+
+                console.log(`File: ${file.fileName} -> Proxy URL: ${proxyUrl}`);
 
                 fileNames += `
                 <a class="link" 
-                onclick="playAudio('${directUrl}', this)">
+                onclick="playAudio('${proxyUrl}', this)">
                 ${fileName}
                 </a>`;
             }
@@ -226,15 +274,30 @@ app.get('/live', async (req, res) => {
         res.write(fileNames);
         res.end(`        <script>
               function playAudio(audioSrc, link) {
+                console.log('Playing:', audioSrc);
+                
                 // Create a new audio element
-                const audio = new Audio(audioSrc);
+                const audio = new Audio();
                 audio.controls = true;
+                
+                audio.addEventListener('loadstart', () => console.log('Loading started:', audioSrc));
+                audio.addEventListener('canplay', () => console.log('Can start playing'));
+                audio.addEventListener('error', (e) => {
+                    console.error('Audio error:', e);
+                    console.error('Audio error details:', audio.error);
+                });
+                
+                audio.src = audioSrc;
                 
                 // Replace the link with the audio element
                 link.parentNode.replaceChild(audio, link);
                 
-                // Play the audio
-                audio.play();
+                // Try to play after a short delay
+                setTimeout(() => {
+                    audio.play().catch(e => {
+                        console.error('Play failed:', e);
+                    });
+                }, 200);
                 
                 // When the audio ends, replace the audio element with the original link
                 audio.addEventListener('ended', () => {
@@ -305,27 +368,5 @@ async function extractArtwork(filePath) {
     }else {
         const picture = metadata.common.picture[0];
         return picture.data.toString('base64');
-    }
-}
-
-// Helper function to get download URL for B2 files
-async function getB2DownloadUrl(fileName, bucketId) {
-    try {
-        // Get download authorization token
-        const downloadAuth = await b2.getDownloadAuthorization({
-            bucketId: bucketId,
-            fileNamePrefix: fileName,
-            validDurationInSeconds: 3600 // 1 hour
-        });
-
-        // Get bucket info for download URL
-        const bucket = await b2.getBucket({ bucketName });
-        const downloadUrl = bucket.data.buckets[0].downloadUrl;
-
-        return `${downloadUrl}/file/${bucketName}/${fileName}?Authorization=${downloadAuth.data.authorizationToken}`;
-    } catch (err) {
-        console.error('Error getting download URL:', err);
-        // Fallback to public URL if bucket is public
-        return `https://f002.backblazeb2.com/file/${bucketName}/${fileName}`;
     }
 }
