@@ -216,8 +216,19 @@ app.get('/analog', async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.write(fileNames);
         res.end(`        <script>
+              let currentAudio = null;
+              let currentLink = null;
+              
               function playAudio(audioSrc, link) {
                 console.log('Playing:', audioSrc);
+                
+                // If there's already a playing audio, stop it and convert back to link
+                if (currentAudio && currentLink) {
+                  currentAudio.pause();
+                  currentAudio.parentNode.replaceChild(currentLink, currentAudio);
+                  currentAudio = null;
+                  currentLink = null;
+                }
                 
                 // Create a new audio element
                 const audio = new Audio();
@@ -235,6 +246,10 @@ app.get('/analog', async (req, res) => {
                 // Replace the link with the audio element
                 link.parentNode.replaceChild(audio, link);
                 
+                // Store references to current audio and link
+                currentAudio = audio;
+                currentLink = link;
+                
                 // Try to play after a short delay
                 setTimeout(() => {
                     audio.play().catch(e => {
@@ -245,6 +260,9 @@ app.get('/analog', async (req, res) => {
                 // When the audio ends, replace the audio element with the original link
                 audio.addEventListener('ended', () => {
                   audio.parentNode.replaceChild(link, audio);
+                  currentAudio = null;
+                  currentLink = null;
+                  
                   let nextLink = link.nextElementSibling;
                   if(nextLink != null){
                     nextLink.click();
@@ -301,8 +319,19 @@ app.get('/live', async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.write(fileNames);
         res.end(`        <script>
+              let currentAudio = null;
+              let currentLink = null;
+              
               function playAudio(audioSrc, link) {
                 console.log('Playing:', audioSrc);
+                
+                // If there's already a playing audio, stop it and convert back to link
+                if (currentAudio && currentLink) {
+                  currentAudio.pause();
+                  currentAudio.parentNode.replaceChild(currentLink, currentAudio);
+                  currentAudio = null;
+                  currentLink = null;
+                }
                 
                 // Create a new audio element
                 const audio = new Audio();
@@ -320,6 +349,10 @@ app.get('/live', async (req, res) => {
                 // Replace the link with the audio element
                 link.parentNode.replaceChild(audio, link);
                 
+                // Store references to current audio and link
+                currentAudio = audio;
+                currentLink = link;
+                
                 // Try to play after a short delay
                 setTimeout(() => {
                     audio.play().catch(e => {
@@ -330,6 +363,9 @@ app.get('/live', async (req, res) => {
                 // When the audio ends, replace the audio element with the original link
                 audio.addEventListener('ended', () => {
                   audio.parentNode.replaceChild(link, audio);
+                  currentAudio = null;
+                  currentLink = null;
+                  
                   let nextLink = link.nextElementSibling;
                   if(nextLink != null){
                     nextLink.click();
