@@ -42,25 +42,33 @@ app.get('/styles.css', function(req, res) {
 // Proxy endpoint to serve B2 files and avoid CORS issues
 app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
     try {
+        console.log('=== B2 Proxy Request Start ===');
+        console.log(`Folder: ${req.params.folder}`);
+        console.log(`Filename param: ${req.params.filename}`);
+
         await b2.authorize();
         const folder = req.params.folder;
-        const filename = decodeURIComponent(req.params.filename); // Decode here
+        const filename = decodeURIComponent(req.params.filename);
         const fullPath = `${folder}/${filename}`;
 
-        console.log(`Proxying B2 file: ${fullPath}`);
+        console.log(`Decoded filename: ${filename}`);
+        console.log(`Full path: ${fullPath}`);
 
         // Download the file from B2
+        console.log('Starting B2 download...');
         const fileData = await b2.downloadFileByName({
             bucketName: bucketName,
             fileName: fullPath,
-            responseType: 'arraybuffer' // Ensure we get binary data
+            responseType: 'arraybuffer'
         });
 
-        console.log(`File downloaded successfully`);
-        console.log(`Response type: ${typeof fileData}`);
-        console.log(`Has data property: ${fileData.data ? 'yes' : 'no'}`);
-        console.log(`Data type: ${typeof fileData.data}`);
-        console.log(`Data length: ${fileData.data ? fileData.data.byteLength || fileData.data.length : 'N/A'}`);
+        console.log(`Download successful`);
+        console.log(`Data exists: ${fileData.data ? 'yes' : 'no'}`);
+
+        if (fileData.data) {
+            console.log(`Data type: ${typeof fileData.data}`);
+            console.log(`Data length: ${fileData.data.byteLength || fileData.data.length || 'unknown'}`);
+        }
 
         // Set appropriate headers
         res.set('Content-Type', 'audio/mpeg');
@@ -68,28 +76,48 @@ app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
         res.set('Cache-Control', 'public, max-age=3600');
         res.set('Access-Control-Allow-Origin', '*');
 
-        // The data should be in fileData.data as a buffer/arraybuffer
+        // Handle the data
         if (fileData.data) {
-            // Convert arraybuffer to buffer if needed
             let buffer;
             if (fileData.data instanceof ArrayBuffer) {
                 buffer = Buffer.from(fileData.data);
+                console.log('Converted ArrayBuffer to Buffer');
             } else if (Buffer.isBuffer(fileData.data)) {
                 buffer = fileData.data;
+                console.log('Data is already a Buffer');
             } else {
                 buffer = Buffer.from(fileData.data);
+                console.log('Converted data to Buffer');
             }
 
+            console.log(`Sending buffer of size: ${buffer.length}`);
             res.send(buffer);
+            console.log('=== B2 Proxy Request Success ===');
         } else {
             console.error('No file data in response');
             res.status(404).send('File data not found');
         }
     } catch (err) {
-        console.error('Error proxying B2 file:', err);
+        console.error('=== B2 Proxy Request Error ===');
+        console.error('Error type:', err.constructor.name);
         console.error('Error message:', err.message);
         console.error('Error status:', err.status);
-        res.status(404).send('File not found: ' + err.message);
+        console.error('Error response:', err.response?.data);
+        console.error('Full error stack:', err.stack);
+
+        // Don't crash the server, send error response
+        try {
+            if (!res.headersSent) {
+                res.status(500).json({
+                    error: 'Proxy error',
+                    message: err.message,
+                    file: req.params.filename
+                });
+            }
+        } catch (sendError) {
+            console.error('Error sending error response:', sendError);
+        }
+        console.error('=== B2 Proxy Request Error End ===');
     }
 });
 
