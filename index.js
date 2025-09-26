@@ -26,9 +26,6 @@ const bucketName = 'analogarchive';
 
 //make files available in music subdirectory
 app.use('/music', express.static(join(__dirname, directoryPathMusic.substring(2))));
-app.get('/Archive.zip', function(req,res){
-    res.sendFile(__dirname + '/Archive.zip');
-});
 app.get('/favicon.ico', function(req,res){
     res.sendFile(__dirname + '/favicon.ico');
 });
@@ -40,7 +37,6 @@ app.get('/audio-handler.js', function(req, res) {
     res.set('Content-Type', 'application/javascript');
     res.sendFile(__dirname + '/audio-handler.js');
 });
-
 // Local metadata endpoint for root endpoint files
 app.get('/localmetadata/:filename(*)', async (req, res) => {
     try {
@@ -71,7 +67,6 @@ app.get('/localmetadata/:filename(*)', async (req, res) => {
         res.status(500).json({ error: 'Local metadata extraction failed', message: err.message });
     }
 });
-
 // Metadata endpoint to get song info from B2 files
 app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
     try {
@@ -135,7 +130,6 @@ app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
         res.status(500).json({ error: 'Metadata extraction failed', message: err.message });
     }
 });
-
 // Proxy endpoint to serve B2 files and avoid CORS issues
 app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
     try {
@@ -217,7 +211,6 @@ app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
         console.error('=== B2 Proxy Request Error End ===');
     }
 });
-
 // Original local music endpoint
 app.get('/', async (req,res) =>{
     try {
@@ -251,8 +244,18 @@ app.get('/', async (req,res) =>{
         res.end('Internal Server Error');
     }
 });
-
+app.get('/analog', async (req, res) => {
+    await handleB2FolderEndpoint('analog', req, res);
+});
+app.get('/live', async (req, res) => {
+    await handleB2FolderEndpoint('live', req, res);
+});
 // Shared function for B2 folder endpoints
+createServer(options, app).listen(port, () => {
+    console.log(`Server listening on https://localhost:${port}`);
+    console.log(`Server listening on https://localhost:${port}/analog`);
+    console.log(`Server listening on https://localhost:${port}/live`);
+});
 async function handleB2FolderEndpoint(folderName, req, res) {
     try {
         await b2.authorize();
@@ -297,20 +300,6 @@ async function handleB2FolderEndpoint(folderName, req, res) {
         res.end('Internal Server Error');
     }
 }
-
-app.get('/analog', async (req, res) => {
-    await handleB2FolderEndpoint('analog', req, res);
-});
-
-app.get('/live', async (req, res) => {
-    await handleB2FolderEndpoint('live', req, res);
-});
-createServer(options, app).listen(port, () => {
-    console.log(`Server listening on https://localhost:${port}`);
-    console.log(`Server listening on https://localhost:${port}/analog`);
-    console.log(`Server listening on https://localhost:${port}/live`);
-});
-
 async function extractArtwork(filePath) {
     const metadata = await parseFile(filePath);
     if(metadata.common.picture===undefined){
