@@ -698,44 +698,6 @@ app.get('/live', async (req, res) => {
     }
 });
 
-// Original movie endpoint
-app.get('/movie', async (req,res) =>{
-    try {
-        let fileNames = '' +
-            '<html>' +
-            '<head>' +
-            '<title>ananlogarchivejs</title>' +
-            '<link rel="stylesheet" href="styles.css">' +
-            '</head>' +
-            '<body>' +
-            '<div class="videocontainer">';
-        const files = await promises.readdir(directoryPathVideo);
-        for (const file of files) {
-            const filePath = join(directoryPathVideo, file);
-            const stats = await promises.stat(filePath);
-            if (stats.isFile() && extname(filePath).toLowerCase() === '.mp4') {
-                fileNames += `
-                <div class="video">
-                    <video width="320 "controls>
-                      <source src="${filePath}" type="video/mp4">
-                      Your browser does not support the video tag.
-                    </video>
-                    <b>${file}</b>
-                </div>
-                `;
-            }
-        }
-        fileNames += '</div>'
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.write(fileNames);
-        res.end(`</body></html>`);
-    } catch (err) {
-        console.error(err);
-        res.writeHead(500);
-        res.end('Internal Server Error');
-    }
-});
-
 createServer(options, app).listen(port, () => {
     console.log(`Server listening on https://localhost:${port}`);
     console.log(`Server listening on https://localhost:${port}/movie`);
