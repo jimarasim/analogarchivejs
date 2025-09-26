@@ -39,6 +39,101 @@ app.get('/styles.css', function(req, res) {
     res.sendFile(__dirname + '/styles.css');
 });
 
+// Local metadata endpoint for root endpoint files
+app.get('/localmetadata/:filename(*)', async (req, res) => {
+    try {
+        const filename = decodeURIComponent(req.params.filename);
+        const filePath = join(directoryPathMusic, filename);
+
+        console.log(`Getting local metadata for: ${filePath}`);
+
+        // Parse metadata from local file
+        const metadata = await parseFile(filePath);
+        const artwork = await extractArtwork(filePath);
+
+        console.log('Local metadata parsed successfully');
+        console.log('Artist:', metadata.common.artist);
+        console.log('Title:', metadata.common.title);
+        console.log('Album:', metadata.common.album);
+
+        // Return metadata as JSON
+        res.json({
+            artist: metadata.common.artist || 'Unknown Artist',
+            album: metadata.common.album || 'Unknown Album',
+            title: metadata.common.title || filename,
+            artwork: artwork,
+            duration: metadata.format.duration || 0
+        });
+    } catch (err) {
+        console.error('Error getting local metadata:', err);
+        res.status(500).json({ error: 'Local metadata extraction failed', message: err.message });
+    }
+});
+
+// Metadata endpoint to get song info from B2 files
+app.get('/b2metadata/:folder/:filename(*)', async (req, res) => {
+    try {
+        await b2.authorize();
+        const folder = req.params.folder;
+        const filename = decodeURIComponent(req.params.filename);
+        const fullPath = `${folder}/${filename}`;
+
+        console.log(`Getting metadata for: ${fullPath}`);
+
+        // Download the file from B2
+        const fileData = await b2.downloadFileByName({
+            bucketName: bucketName,
+            fileName: fullPath,
+            responseType: 'arraybuffer'
+        });
+
+        if (fileData.data) {
+            // Convert to buffer for metadata parsing
+            let buffer;
+            if (fileData.data instanceof ArrayBuffer) {
+                buffer = Buffer.from(fileData.data);
+            } else if (Buffer.isBuffer(fileData.data)) {
+                buffer = fileData.data;
+            } else {
+                buffer = Buffer.from(fileData.data);
+            }
+
+            console.log(`Buffer size: ${buffer.length} bytes`);
+
+            // Parse metadata from the buffer using parseBuffer instead of parseFile
+            const { parseBuffer } = await import('music-metadata');
+            const metadata = await parseBuffer(buffer, { duration: true });
+
+            console.log('Metadata parsed successfully');
+            console.log('Artist:', metadata.common.artist);
+            console.log('Title:', metadata.common.title);
+            console.log('Album:', metadata.common.album);
+
+            // Extract artwork
+            let artwork = "";
+            if (metadata.common.picture && metadata.common.picture[0]) {
+                const picture = metadata.common.picture[0];
+                artwork = picture.data.toString('base64');
+                console.log('Artwork extracted, size:', artwork.length);
+            }
+
+            // Return metadata as JSON
+            res.json({
+                artist: metadata.common.artist || 'Unknown Artist',
+                album: metadata.common.album || 'Unknown Album',
+                title: metadata.common.title || filename,
+                artwork: artwork,
+                duration: metadata.format.duration || 0
+            });
+        } else {
+            res.status(404).json({ error: 'File not found' });
+        }
+    } catch (err) {
+        console.error('Error getting metadata:', err);
+        res.status(500).json({ error: 'Metadata extraction failed', message: err.message });
+    }
+});
+
 // Proxy endpoint to serve B2 files and avoid CORS issues
 app.get('/b2proxy/:folder/:filename(*)', async (req, res) => {
     try {
@@ -146,20 +241,117 @@ app.get('/', async (req,res) =>{
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.write(fileNames);
         res.end(`        <script>
-              function playAudio(audioSrc, link) {
+              let currentAudio = null;
+              let currentLink = null;
+              let currentMetadataDiv = null;
+              
+              async function playAudio(audioSrc, link) {
+                console.log('Playing:', audioSrc);
+                
+                // If there's already a playing audio, stop it and convert back to link
+                if (currentAudio && currentLink) {
+                  currentAudio.pause();
+                  currentAudio.parentNode.replaceChild(currentLink, currentAudio);
+                  if (currentMetadataDiv) {
+                    currentMetadataDiv.remove();
+                  }
+                  currentAudio = null;
+                  currentLink = null;
+                  currentMetadataDiv = null;
+                }
+                
                 // Create a new audio element
-                const audio = new Audio(audioSrc);
+                const audio = new Audio();
                 audio.controls = true;
                 
-                // Replace the link with the audio element
-                link.parentNode.replaceChild(audio, link);
+                // Create metadata display container
+                const metadataDiv = document.createElement('div');
+                metadataDiv.className = 'now-playing-metadata';
+                metadataDiv.style.cssText = \`
+                  display: flex;
+                  align-items: center;
+                  background: linear-gradient(135deg, #1e3c72, #2a5298);
+                  color: white;
+                  padding: 15px;
+                  border-radius: 8px;
+                  margin: 10px 0;
+                  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                \`;
                 
-                // Play the audio
-                audio.play();
+                // Add loading state
+                metadataDiv.innerHTML = \`
+                  <div style="width: 80px; height: 80px; background: #444; border-radius: 4px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                    <span style="color: #888;">♪</span>
+                  </div>
+                  <div>
+                    <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">Loading...</div>
+                    <div style="opacity: 0.8;">Fetching metadata...</div>
+                  </div>
+                \`;
                 
-                // When the audio ends, replace the audio element with the original link
+                audio.addEventListener('loadstart', () => console.log('Loading started:', audioSrc));
+                audio.addEventListener('canplay', () => console.log('Can start playing'));
+                audio.addEventListener('error', (e) => {
+                    console.error('Audio error:', e);
+                    console.error('Audio error details:', audio.error);
+                });
+                
+                audio.src = audioSrc;
+                
+                // Replace the link with audio and metadata
+                const container = document.createElement('div');
+                container.appendChild(metadataDiv);
+                container.appendChild(audio);
+                link.parentNode.replaceChild(container, link);
+                
+                // Store references
+                currentAudio = audio;
+                currentLink = link;
+                currentMetadataDiv = container;
+                
+                // Fetch and display metadata (use local metadata endpoint for root)
+                try {
+                  const filename = audioSrc.replace('music/', '');
+                  const metadataUrl = \`/localmetadata/\${encodeURIComponent(filename)}\`;
+                  console.log('Fetching local metadata from:', metadataUrl);
+                  const response = await fetch(metadataUrl);
+                  const metadata = await response.json();
+                  
+                  console.log('Metadata received:', metadata);
+                  
+                  const artworkSrc = metadata.artwork ? 
+                    \`data:image/png;base64,\${metadata.artwork}\` : 
+                    'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="#444"/><text x="40" y="45" text-anchor="middle" fill="#888" font-size="20">♪</text></svg>');
+                  
+                  metadataDiv.innerHTML = \`
+                    <img src="\${artworkSrc}" 
+                         style="width: 80px; height: 80px; border-radius: 4px; margin-right: 15px; object-fit: cover;" 
+                         onerror="this.style.display='none';">
+                    <div>
+                      <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">\${metadata.title}</div>
+                      <div style="opacity: 0.9; margin-bottom: 3px;">\${metadata.artist}</div>
+                      <div style="opacity: 0.7; font-size: 14px;">\${metadata.album}</div>
+                    </div>
+                  \`;
+                } catch (metadataError) {
+                  console.error('Failed to load local metadata:', metadataError);
+                  // Keep loading state or show error
+                }
+                
+                // Try to play after a short delay
+                setTimeout(() => {
+                    audio.play().catch(e => {
+                        console.error('Play failed:', e);
+                    });
+                }, 200);
+                
+                // When the audio ends, replace everything with the original link
                 audio.addEventListener('ended', () => {
-                  audio.parentNode.replaceChild(link, audio);
+                  container.parentNode.replaceChild(link, container);
+                  currentAudio = null;
+                  currentLink = null;
+                  currentMetadataDiv = null;
+                  
                   let nextLink = link.nextElementSibling;
                   if(nextLink != null){
                     nextLink.click();
@@ -218,21 +410,51 @@ app.get('/analog', async (req, res) => {
         res.end(`        <script>
               let currentAudio = null;
               let currentLink = null;
+              let currentMetadataDiv = null;
               
-              function playAudio(audioSrc, link) {
+              async function playAudio(audioSrc, link) {
                 console.log('Playing:', audioSrc);
                 
                 // If there's already a playing audio, stop it and convert back to link
                 if (currentAudio && currentLink) {
                   currentAudio.pause();
                   currentAudio.parentNode.replaceChild(currentLink, currentAudio);
+                  if (currentMetadataDiv) {
+                    currentMetadataDiv.remove();
+                  }
                   currentAudio = null;
                   currentLink = null;
+                  currentMetadataDiv = null;
                 }
                 
                 // Create a new audio element
                 const audio = new Audio();
                 audio.controls = true;
+                
+                // Create metadata display container
+                const metadataDiv = document.createElement('div');
+                metadataDiv.className = 'now-playing-metadata';
+                metadataDiv.style.cssText = \`
+                  display: flex;
+                  align-items: center;
+                  background: linear-gradient(135deg, #1e3c72, #2a5298);
+                  color: white;
+                  padding: 15px;
+                  border-radius: 8px;
+                  margin: 10px 0;
+                  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                \`;
+                
+                // Add loading state
+                metadataDiv.innerHTML = \`
+                  <div style="width: 80px; height: 80px; background: #444; border-radius: 4px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                    <span style="color: #888;">♪</span>
+                  </div>
+                  <div>
+                    <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">Loading...</div>
+                    <div style="opacity: 0.8;">Fetching metadata...</div>
+                  </div>
+                \`;
                 
                 audio.addEventListener('loadstart', () => console.log('Loading started:', audioSrc));
                 audio.addEventListener('canplay', () => console.log('Can start playing'));
@@ -243,12 +465,44 @@ app.get('/analog', async (req, res) => {
                 
                 audio.src = audioSrc;
                 
-                // Replace the link with the audio element
-                link.parentNode.replaceChild(audio, link);
+                // Replace the link with audio and metadata
+                const container = document.createElement('div');
+                container.appendChild(metadataDiv);
+                container.appendChild(audio);
+                link.parentNode.replaceChild(container, link);
                 
-                // Store references to current audio and link
+                // Store references
                 currentAudio = audio;
                 currentLink = link;
+                currentMetadataDiv = container;
+                
+                // Fetch and display metadata
+                try {
+                  const metadataUrl = audioSrc.replace('/b2proxy/', '/b2metadata/');
+                  console.log('Fetching metadata from:', metadataUrl);
+                  const response = await fetch(metadataUrl);
+                  const metadata = await response.json();
+                  
+                  console.log('Metadata received:', metadata);
+                  
+                  const artworkSrc = metadata.artwork ? 
+                    \`data:image/jpeg;base64,\${metadata.artwork}\` : 
+                    'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="#444"/><text x="40" y="45" text-anchor="middle" fill="#888" font-size="20">♪</text></svg>');
+                  
+                  metadataDiv.innerHTML = \`
+                    <img src="\${artworkSrc}" 
+                         style="width: 80px; height: 80px; border-radius: 4px; margin-right: 15px; object-fit: cover;" 
+                         onerror="this.style.display='none';">
+                    <div>
+                      <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">\${metadata.title}</div>
+                      <div style="opacity: 0.9; margin-bottom: 3px;">\${metadata.artist}</div>
+                      <div style="opacity: 0.7; font-size: 14px;">\${metadata.album}</div>
+                    </div>
+                  \`;
+                } catch (metadataError) {
+                  console.error('Failed to load metadata:', metadataError);
+                  // Keep loading state or show error
+                }
                 
                 // Try to play after a short delay
                 setTimeout(() => {
@@ -257,11 +511,12 @@ app.get('/analog', async (req, res) => {
                     });
                 }, 200);
                 
-                // When the audio ends, replace the audio element with the original link
+                // When the audio ends, replace everything with the original link
                 audio.addEventListener('ended', () => {
-                  audio.parentNode.replaceChild(link, audio);
+                  container.parentNode.replaceChild(link, container);
                   currentAudio = null;
                   currentLink = null;
+                  currentMetadataDiv = null;
                   
                   let nextLink = link.nextElementSibling;
                   if(nextLink != null){
@@ -321,21 +576,51 @@ app.get('/live', async (req, res) => {
         res.end(`        <script>
               let currentAudio = null;
               let currentLink = null;
+              let currentMetadataDiv = null;
               
-              function playAudio(audioSrc, link) {
+              async function playAudio(audioSrc, link) {
                 console.log('Playing:', audioSrc);
                 
                 // If there's already a playing audio, stop it and convert back to link
                 if (currentAudio && currentLink) {
                   currentAudio.pause();
                   currentAudio.parentNode.replaceChild(currentLink, currentAudio);
+                  if (currentMetadataDiv) {
+                    currentMetadataDiv.remove();
+                  }
                   currentAudio = null;
                   currentLink = null;
+                  currentMetadataDiv = null;
                 }
                 
                 // Create a new audio element
                 const audio = new Audio();
                 audio.controls = true;
+                
+                // Create metadata display container
+                const metadataDiv = document.createElement('div');
+                metadataDiv.className = 'now-playing-metadata';
+                metadataDiv.style.cssText = \`
+                  display: flex;
+                  align-items: center;
+                  background: linear-gradient(135deg, #1e3c72, #2a5298);
+                  color: white;
+                  padding: 15px;
+                  border-radius: 8px;
+                  margin: 10px 0;
+                  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                \`;
+                
+                // Add loading state
+                metadataDiv.innerHTML = \`
+                  <div style="width: 80px; height: 80px; background: #444; border-radius: 4px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                    <span style="color: #888;">♪</span>
+                  </div>
+                  <div>
+                    <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">Loading...</div>
+                    <div style="opacity: 0.8;">Fetching metadata...</div>
+                  </div>
+                \`;
                 
                 audio.addEventListener('loadstart', () => console.log('Loading started:', audioSrc));
                 audio.addEventListener('canplay', () => console.log('Can start playing'));
@@ -346,12 +631,44 @@ app.get('/live', async (req, res) => {
                 
                 audio.src = audioSrc;
                 
-                // Replace the link with the audio element
-                link.parentNode.replaceChild(audio, link);
+                // Replace the link with audio and metadata
+                const container = document.createElement('div');
+                container.appendChild(metadataDiv);
+                container.appendChild(audio);
+                link.parentNode.replaceChild(container, link);
                 
-                // Store references to current audio and link
+                // Store references
                 currentAudio = audio;
                 currentLink = link;
+                currentMetadataDiv = container;
+                
+                // Fetch and display metadata
+                try {
+                  const metadataUrl = audioSrc.replace('/b2proxy/', '/b2metadata/');
+                  console.log('Fetching metadata from:', metadataUrl);
+                  const response = await fetch(metadataUrl);
+                  const metadata = await response.json();
+                  
+                  console.log('Metadata received:', metadata);
+                  
+                  const artworkSrc = metadata.artwork ? 
+                    \`data:image/jpeg;base64,\${metadata.artwork}\` : 
+                    'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="#444"/><text x="40" y="45" text-anchor="middle" fill="#888" font-size="20">♪</text></svg>');
+                  
+                  metadataDiv.innerHTML = \`
+                    <img src="\${artworkSrc}" 
+                         style="width: 80px; height: 80px; border-radius: 4px; margin-right: 15px; object-fit: cover;" 
+                         onerror="this.style.display='none';">
+                    <div>
+                      <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">\${metadata.title}</div>
+                      <div style="opacity: 0.9; margin-bottom: 3px;">\${metadata.artist}</div>
+                      <div style="opacity: 0.7; font-size: 14px;">\${metadata.album}</div>
+                    </div>
+                  \`;
+                } catch (metadataError) {
+                  console.error('Failed to load metadata:', metadataError);
+                  // Keep loading state or show error
+                }
                 
                 // Try to play after a short delay
                 setTimeout(() => {
@@ -360,11 +677,12 @@ app.get('/live', async (req, res) => {
                     });
                 }, 200);
                 
-                // When the audio ends, replace the audio element with the original link
+                // When the audio ends, replace everything with the original link
                 audio.addEventListener('ended', () => {
-                  audio.parentNode.replaceChild(link, audio);
+                  container.parentNode.replaceChild(link, container);
                   currentAudio = null;
                   currentLink = null;
+                  currentMetadataDiv = null;
                   
                   let nextLink = link.nextElementSibling;
                   if(nextLink != null){
