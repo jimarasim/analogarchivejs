@@ -7,3 +7,4 @@ package-lock.json
 ssl/
 .env
 deploy.sh
+output.log

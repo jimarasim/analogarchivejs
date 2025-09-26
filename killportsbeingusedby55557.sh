@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-kill "$(lsof -t -i:55557s )"
+sudo kill -9 $(sudo lsof -ti:55557)
