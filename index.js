@@ -10,11 +10,11 @@ import express from 'express';
 import B2 from 'backblaze-b2';
 
 const app = express();
-const port = 50001;
+const port = 55557;
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 //use self-signed certificate for localhost development
-const options = {key: readFileSync('./ssl/server.key'),
-    cert: readFileSync('./ssl/server.cert')}
+const options = {key: readFileSync(process.env.SSL_KEY_PATH),
+    cert: readFileSync(process.env.SSL_CERT_PATH)}
 const directoryPathMusic = "./music";
 
 // Backblaze B2 configuration
@@ -22,7 +22,7 @@ const b2 = new B2({
     applicationKeyId: process.env.B2_APPLICATION_KEY_ID, // Set these in your environment
     applicationKey: process.env.B2_APPLICATION_KEY
 });
-const bucketName = 'analogarchive';
+const bucketName = process.env.B2_BUCKET_NAME;
 
 //make files available in music subdirectory
 app.use('/music', express.static(join(__dirname, directoryPathMusic.substring(2))));
